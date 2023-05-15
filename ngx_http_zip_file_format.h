@@ -13,6 +13,7 @@
 //                      Unix dir bit -^     ^- DOS dir bit
 //        Unix permission bits (0755) -^^^
 
+/*
 typedef struct {
     uint16_t   tag; //0x5455
     uint16_t   size;
@@ -65,7 +66,7 @@ typedef struct {
     uint64_t   compressed_size;
     uint64_t   relative_header_offset;
 } ngx_zip_extra_field_zip64_sizes_offset_t;
-
+*/
 
 typedef struct {
     uint32_t   signature; //0x08074b50

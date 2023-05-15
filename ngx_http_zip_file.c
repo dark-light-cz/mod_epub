@@ -19,29 +19,29 @@ static ngx_str_t ngx_http_zip_header_name_pass_headers = ngx_string("upstream_ht
 
 
 // Chunk templates for fast struct init:
-
+/*
 static ngx_zip_extra_field_local_t ngx_zip_extra_field_local_template = {
-    0x5455,             /* tag for this extra block type ("UT") */
+    0x5455,             / * tag for this extra block type ("UT") * /
     sizeof(ngx_zip_extra_field_local_t) - 4,
-                        /* total data size for this block */
-    0x03,               /* info bits */
-    0,                  /* modification time */
-    0,                  /* access time */
+                        / * total data size for this block * /
+    0x03,               / * info bits * /
+    0,                  / * modification time * /
+    0,                  / * access time * /
 };
 
 static ngx_zip_extra_field_central_t ngx_zip_extra_field_central_template = {
-    0x5455,         /* tag for this extra block type ("UT") */
+    0x5455,         / * tag for this extra block type ("UT") * /
     sizeof(ngx_zip_extra_field_central_t) - 4,
-                    /* total data size for this block */
-    0x03,           /* info bits */
-    0,              /* modification time */
+                    / * total data size for this block * /
+    0x03,           / * info bits * /
+    0,              / * modification time * /
 };
 
 static ngx_zip_extra_field_unicode_path_t ngx_zip_extra_field_unicode_path_template = {
-    0x7075,         /* Info-ZIP Unicode Path tag */
+    0x7075,         / * Info-ZIP Unicode Path tag * /
     0,
-    1,              /* version of this extra field, currently 1 (c) */
-    0,              /* crc-32 */
+    1,              / * version of this extra field, currently 1 (c) * /
+    0,              / * crc-32 * /
 };
 
 static ngx_zip_extra_field_zip64_sizes_only_t ngx_zip_extra_field_zip64_sizes_only_template = {
@@ -64,6 +64,7 @@ static ngx_zip_extra_field_zip64_sizes_offset_t ngx_zip_extra_field_zip64_sizes_
     0,
     0
 };
+*/
 
 static ngx_zip_data_descriptor_t ngx_zip_data_descriptor_template = {
     0x08074b50,  /* data descriptor signature */
@@ -89,7 +90,7 @@ static ngx_zip_local_file_header_t ngx_zip_local_file_header_template = {
     0xffffffff,           /* compressed size */
     0xffffffff,           /* uncompressed size */
     0,           /* file name length */
-    sizeof(ngx_zip_extra_field_local_t),
+    0, // sizeof(ngx_zip_extra_field_local_t),
                  /* extra field length */
 };
 
@@ -104,7 +105,7 @@ static ngx_zip_central_directory_file_header_t ngx_zip_central_directory_file_he
     0xffffffff,           /* compressed size */
     0xffffffff,           /* uncompressed size */
     0,           /* file name length */
-    sizeof(ngx_zip_extra_field_central_t),
+    0, // sizeof(ngx_zip_extra_field_central_t),
                  /* extra field length */
     0,           /* file comment length */
     0,           /* disk number start */
@@ -123,7 +124,7 @@ static ngx_zip_end_of_central_directory_record_t ngx_zip_end_of_central_director
     0xffffffff,           /* offset of start of central directory w.r.t. starting disk # */
     0            /* .ZIP file comment length */
 };
-
+/*
 static ngx_zip_zip64_end_of_central_directory_record_t ngx_zip_zip64_end_of_central_directory_record_template = {
     0x06064b50, //signature for zip64 EOCD
     sizeof(ngx_zip_zip64_end_of_central_directory_record_t)-12, //size of this record (+variable fields, but minus signature and this size field), Size = SizeOfFixedFields + SizeOfVariableData - 12
@@ -143,7 +144,7 @@ static ngx_zip_zip64_end_of_central_directory_locator_t ngx_zip_zip64_end_of_cen
     0, // offset of central directory
     1 //dics number total
 };
-
+*/
 //-----------------------------------------------------------------------------------------------------------
 
 
@@ -366,29 +367,45 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
         if(file->size >= (off_t) NGX_MAX_UINT32_VALUE)
             ctx->zip64_used = file->need_zip64 = 1;
 
-        ctx->cd_size += sizeof(ngx_zip_central_directory_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_central_t);
+        ctx->cd_size += sizeof(ngx_zip_central_directory_file_header_t) + file->filename.len;
+        // ctx->cd_size += sizeof(ngx_zip_central_directory_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_central_t);
         if (file->need_zip64) {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
+                          "mod_zip: unable to use zip64. Epub disabled this feture");
+            /*
             if (file->need_zip64_offset) {
                 ctx->cd_size += sizeof(ngx_zip_extra_field_zip64_sizes_offset_t);
             } else {
                 ctx->cd_size += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
-            }
+            }*/
         } else if (file->need_zip64_offset) {
-            ctx->cd_size += sizeof(ngx_zip_extra_field_zip64_offset_only_t);
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
+                          "mod_zip: unable to use zip64. Epub disabled this feture");
+            // ctx->cd_size += sizeof(ngx_zip_extra_field_zip64_offset_only_t);
         }
-        if (ctx->unicode_path && file->filename_utf8.len)
-            ctx->cd_size += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
+        if (ctx->unicode_path && file->filename_utf8.len) {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
+                          "mod_zip: unable to use unicode names. Epub disabled this feture");
+            // ctx->cd_size += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
+        }
 
         header_piece = &ctx->pieces[piece_i++];
         header_piece->type = zip_header_piece;
         header_piece->file = file;
         header_piece->range.start = offset;
 
-        offset += sizeof(ngx_zip_local_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_local_t);
-        if (file->need_zip64)
-            offset += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
-        if (ctx->unicode_path && file->filename_utf8.len)
-            offset += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
+        offset += sizeof(ngx_zip_local_file_header_t) + file->filename.len;
+        //offset += sizeof(ngx_zip_local_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_local_t);
+        if (file->need_zip64){
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
+                          "mod_zip: unable to use zip64. Epub disabled this feture");
+            // offset += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
+        }
+        if (ctx->unicode_path && file->filename_utf8.len){
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
+                          "mod_zip: unable to use unicode names. Epub disabled this feture");
+            // offset += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
+        }
         header_piece->range.end = offset;
 
         file_piece = &ctx->pieces[piece_i++];
@@ -482,16 +499,23 @@ ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *c
     u_char      *p;
 
     ngx_http_zip_file_t *file = piece->file;
-    ngx_zip_extra_field_local_t   extra_field_local;
-    ngx_zip_extra_field_zip64_sizes_only_t extra_field_zip64;
+    // ngx_zip_extra_field_local_t   extra_field_local;
+    // ngx_zip_extra_field_zip64_sizes_only_t extra_field_zip64;
     ngx_zip_local_file_header_t   local_file_header;
-    ngx_zip_extra_field_unicode_path_t extra_field_unicode_path;
+    // ngx_zip_extra_field_unicode_path_t extra_field_unicode_path;
 
-    size_t len = sizeof(ngx_zip_local_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_local_t);
-    if (file->need_zip64)
-        len += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
-    if (ctx->unicode_path && file->filename_utf8.len)
-        len += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
+    size_t len = sizeof(ngx_zip_local_file_header_t) + file->filename.len;
+    // size_t len = sizeof(ngx_zip_local_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_local_t);
+    if (file->need_zip64){
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
+                      "mod_zip: unable to use zip64. Epub disabled this feture");
+        // len += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
+    }
+    if (ctx->unicode_path && file->filename_utf8.len){
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
+                      "mod_zip: unable to use unicode names. Epub disabled this feture");
+        // len += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
+    }
 
     if ((link = ngx_alloc_chain_link(r->pool)) == NULL || (b = ngx_calloc_buf(r->pool)) == NULL
             || (b->pos = ngx_pcalloc(r->pool, len)) == NULL)
@@ -515,41 +539,49 @@ ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *c
     if (ctx->native_charset) {
         local_file_header.flags &= htole16(~zip_utf8_flag);
     }
-    extra_field_zip64 = ngx_zip_extra_field_zip64_sizes_only_template;
-    extra_field_zip64.tag = htole16(extra_field_zip64.tag);
-    extra_field_zip64.size = htole16(extra_field_zip64.size);
+    // extra_field_zip64 = ngx_zip_extra_field_zip64_sizes_only_template;
+    // extra_field_zip64.tag = htole16(extra_field_zip64.tag);
+    // extra_field_zip64.size = htole16(extra_field_zip64.size);
 
     if (file->need_zip64) {
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
+                      "mod_zip: unable to use zip64. Epub disabled this feture");
+    }
+    /*if (file->need_zip64) {
         local_file_header.version = htole16(zip_version_zip64);
         local_file_header.extra_field_len += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
 
         extra_field_zip64.uncompressed_size = extra_field_zip64.compressed_size = htole64(file->size);
-    } else {
+    } else {*/
         local_file_header.compressed_size = htole32(file->size);
         local_file_header.uncompressed_size = htole32(file->size);
-    }
+        /*
+    }*/
 
-    extra_field_unicode_path = ngx_zip_extra_field_unicode_path_template;
-    extra_field_unicode_path.tag = htole16(extra_field_unicode_path.tag);
-
+    // extra_field_unicode_path = ngx_zip_extra_field_unicode_path_template;
+    // extra_field_unicode_path.tag = htole16(extra_field_unicode_path.tag);
+    
+    /*
     if (ctx->unicode_path && file->filename_utf8.len) {
         extra_field_unicode_path.crc32 = htole32(file->filename_utf8_crc32);
         extra_field_unicode_path.size = htole16(sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len);
 
         local_file_header.extra_field_len += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
     }
+    */
     local_file_header.extra_field_len = htole16(local_file_header.extra_field_len);
 
     if (!file->missing_crc32) {
         local_file_header.flags &= htole16(~zip_missing_crc32_flag);
         local_file_header.crc32 = htole32(file->crc32);
     }
-
+    /*
     extra_field_local = ngx_zip_extra_field_local_template;
     extra_field_local.tag = htole16(extra_field_local.tag);
     extra_field_local.size = htole16(extra_field_local.size);
     extra_field_local.mtime = htole32(file->unix_time);
     extra_field_local.atime = htole32(file->unix_time);
+    */
 
     p = b->pos;
 
@@ -558,10 +590,10 @@ ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *c
 
     ngx_memcpy(p, file->filename.data, file->filename.len);
     p += file->filename.len;
-
+    /*
     ngx_memcpy(p, &extra_field_local, sizeof(ngx_zip_extra_field_local_t));
     p += sizeof(ngx_zip_extra_field_local_t);
-
+        
     if (file->need_zip64) {
         ngx_memcpy(p, &extra_field_zip64, sizeof(ngx_zip_extra_field_zip64_sizes_only_t));
         p += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
@@ -574,7 +606,7 @@ ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *c
         ngx_memcpy(p, file->filename_utf8.data, file->filename_utf8.len);
         p += file->filename_utf8.len;
     }
-
+    */
     ngx_http_zip_truncate_buffer(b, &piece->range, range);
 
     link->buf = b;
@@ -637,8 +669,8 @@ ngx_http_zip_central_directory_chain_link(ngx_http_request_t *r, ngx_http_zip_ct
     ngx_uint_t             i;
     ngx_array_t           *files;
     ngx_zip_end_of_central_directory_record_t  eocdr;
-    ngx_zip_zip64_end_of_central_directory_record_t eocdr64;
-    ngx_zip_zip64_end_of_central_directory_locator_t locator64;
+    // ngx_zip_zip64_end_of_central_directory_record_t eocdr64;
+    // ngx_zip_zip64_end_of_central_directory_locator_t locator64;
 
     if (!ctx || !ctx->cd_size || (trailer = ngx_alloc_chain_link(r->pool)) == NULL
             || (trailer_buf = ngx_calloc_buf(r->pool)) == NULL
@@ -656,7 +688,7 @@ ngx_http_zip_central_directory_chain_link(ngx_http_request_t *r, ngx_http_zip_ct
     trailer_buf->memory = 1;
 
     for (i = 0; i < files->nelts; i++)
-        p = ngx_http_zip_write_central_directory_entry(p, &((ngx_http_zip_file_t *)files->elts)[i], ctx);
+        p = ngx_http_zip_write_central_directory_entry(p, &((ngx_http_zip_file_t *)files->elts)[i], ctx, r);
 
     eocdr = ngx_zip_end_of_central_directory_record_template;
     eocdr.signature = htole32(eocdr.signature);
@@ -673,7 +705,7 @@ ngx_http_zip_central_directory_chain_link(ngx_http_request_t *r, ngx_http_zip_ct
         eocdr.size = htole32(cd_size);
     if (piece->range.start < (off_t) NGX_MAX_UINT32_VALUE)
         eocdr.offset = htole32(piece->range.start);
-
+    /*
     if (ctx->zip64_used) {
         eocdr64 = ngx_zip_zip64_end_of_central_directory_record_template;
         eocdr64.signature = htole32(eocdr64.signature);
@@ -694,7 +726,7 @@ ngx_http_zip_central_directory_chain_link(ngx_http_request_t *r, ngx_http_zip_ct
         locator64.cd_relative_offset = htole64(piece->range.start + cd_size);
         ngx_memcpy(p, &locator64, sizeof(ngx_zip_zip64_end_of_central_directory_locator_t));
         p += sizeof(ngx_zip_zip64_end_of_central_directory_locator_t);
-    }
+    }*/
 
     ngx_memcpy(p, &eocdr, sizeof(ngx_zip_end_of_central_directory_record_t));
 
@@ -705,16 +737,16 @@ ngx_http_zip_central_directory_chain_link(ngx_http_request_t *r, ngx_http_zip_ct
 
 u_char *
 ngx_http_zip_write_central_directory_entry(u_char *p, ngx_http_zip_file_t *file,
-        ngx_http_zip_ctx_t *ctx)
+        ngx_http_zip_ctx_t *ctx, ngx_http_request_t *r)
 {
-    ngx_zip_extra_field_central_t            extra_field_central;
+    // ngx_zip_extra_field_central_t            extra_field_central;
     ngx_zip_central_directory_file_header_t  central_directory_file_header;
-    ngx_zip_extra_field_zip64_offset_only_t extra_zip64_offset;
-    ngx_zip_extra_field_zip64_sizes_offset_t extra_zip64_offset_size;
-    ngx_zip_extra_field_zip64_sizes_only_t extra_zip64_size;
-    ngx_zip_extra_field_unicode_path_t extra_field_unicode_path;
-    void* extra_zip64_ptr = NULL; //!!
-    size_t extra_zip64_ptr_size = 0;
+    // ngx_zip_extra_field_zip64_offset_only_t extra_zip64_offset;
+    // ngx_zip_extra_field_zip64_sizes_offset_t extra_zip64_offset_size;
+    // ngx_zip_extra_field_zip64_sizes_only_t extra_zip64_size;
+    // ngx_zip_extra_field_unicode_path_t extra_field_unicode_path;
+    // void* extra_zip64_ptr = NULL; //!!
+    // size_t extra_zip64_ptr_size = 0;
 
     central_directory_file_header = ngx_zip_central_directory_file_header_template;
     central_directory_file_header.signature = htole32(central_directory_file_header.signature);
@@ -743,7 +775,7 @@ ngx_http_zip_write_central_directory_entry(u_char *p, ngx_http_zip_file_t *file,
         central_directory_file_header.offset = htole32(file->offset);
     if (!file->missing_crc32)
         central_directory_file_header.flags &= htole16(~zip_missing_crc32_flag);
-
+    /*
     if (file->need_zip64) {
         central_directory_file_header.version_needed = zip_version_zip64;
         if (file->need_zip64_offset){
@@ -785,28 +817,31 @@ ngx_http_zip_write_central_directory_entry(u_char *p, ngx_http_zip_file_t *file,
 
         central_directory_file_header.extra_field_len += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
     }
+    */
     central_directory_file_header.extra_field_len = htole16(central_directory_file_header.extra_field_len);
-
     ngx_memcpy(p, &central_directory_file_header, sizeof(ngx_zip_central_directory_file_header_t));
     p += sizeof(ngx_zip_central_directory_file_header_t);
 
     ngx_memcpy(p, file->filename.data, file->filename.len);
     p += file->filename.len;
-
+    
+    /*
     ngx_memcpy(p, &extra_field_central, sizeof(ngx_zip_extra_field_central_t));
     p += sizeof(ngx_zip_extra_field_central_t);
 
     if (extra_zip64_ptr) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: Adding extra field zip64");
         ngx_memcpy(p, extra_zip64_ptr, extra_zip64_ptr_size);
         p += extra_zip64_ptr_size;
     }
 
     if (ctx->unicode_path && file->filename_utf8.len) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: Adding extra field unicode name");
         ngx_memcpy(p, &extra_field_unicode_path, sizeof(ngx_zip_extra_field_unicode_path_t));
         p += sizeof(ngx_zip_extra_field_unicode_path_t);
 
         ngx_memcpy(p, file->filename_utf8.data, file->filename_utf8.len);
         p += file->filename_utf8.len;
-    }
+    }*/
     return p;
 }

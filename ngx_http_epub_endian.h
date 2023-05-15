@@ -1,5 +1,5 @@
-#ifndef NGX_HTTP_ZIP_ENDIAN_H_
-#define NGX_HTTP_ZIP_ENDIAN_H_
+#ifndef NGX_HTTP_EPUB_ENDIAN_H_
+#define NGX_HTTP_EPUB_ENDIAN_H_
 
 #if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) && !defined(__WINDOWS__)
 

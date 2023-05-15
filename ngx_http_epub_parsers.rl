@@ -1,10 +1,10 @@
-/* Ragel Parser definitions for mod_zip64 */
+/* Ragel Parser definitions for mod_epub64 */
 
-#include "ngx_http_zip_module.h"
-#include "ngx_http_zip_parsers.h"
+#include "ngx_http_epub_module.h"
+#include "ngx_http_epub_parsers.h"
 
 static void
-ngx_http_zip_file_init(ngx_http_zip_file_t *parsing_file)
+ngx_http_epub_file_init(ngx_http_epub_file_t *parsing_file)
 {
     ngx_str_null(&parsing_file->uri);
     ngx_str_null(&parsing_file->args);
@@ -41,8 +41,8 @@ destructive_url_decode_len(unsigned char* start, unsigned char* end)
 }
 
 static ngx_int_t
-ngx_http_zip_clean_range(ngx_http_zip_range_t *range,
-        int prefix, int suffix, ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_clean_range(ngx_http_epub_range_t *range,
+        int prefix, int suffix, ngx_http_epub_ctx_t *ctx)
 {
     if (suffix) {
         range->end = ctx->archive_size;
@@ -74,19 +74,19 @@ ngx_http_zip_clean_range(ngx_http_zip_range_t *range,
 }%%
 
 ngx_int_t
-ngx_http_zip_parse_request(ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_parse_request(ngx_http_epub_ctx_t *ctx)
 {
     int cs;
     u_char *p = ctx->unparsed_request.elts;
     u_char *pe = p + ctx->unparsed_request.nelts;
     u_char *eof = pe;
-    ngx_http_zip_file_t *parsing_file = NULL;
+    ngx_http_epub_file_t *parsing_file = NULL;
 
     %%{
 
         action start_file {
             parsing_file = ngx_array_push(&ctx->files);
-            ngx_http_zip_file_init(parsing_file);
+            ngx_http_epub_file_init(parsing_file);
 
             parsing_file->index = ctx->files.nelts - 1;
         }
@@ -177,18 +177,18 @@ ngx_http_zip_parse_request(ngx_http_zip_ctx_t *ctx)
 }%%
 
 ngx_int_t
-ngx_http_zip_parse_range(ngx_http_request_t *r, ngx_str_t *range_str, ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_parse_range(ngx_http_request_t *r, ngx_str_t *range_str, ngx_http_epub_ctx_t *ctx)
 {
     int cs, prefix = 0, suffix = 0;
 
-    ngx_http_zip_range_t *range = NULL;
+    ngx_http_epub_range_t *range = NULL;
     u_char *p = range_str->data;
     u_char *pe = range_str->data + range_str->len;
 
     %%{
         action new_range {
             if (range) {
-                if (ngx_http_zip_clean_range(range, prefix, suffix, ctx) == NGX_ERROR) {
+                if (ngx_http_epub_clean_range(range, prefix, suffix, ctx) == NGX_ERROR) {
                     return NGX_ERROR;
                 }
             }
@@ -227,7 +227,7 @@ ngx_http_zip_parse_range(ngx_http_request_t *r, ngx_str_t *range_str, ngx_http_z
     }
 
     if (range) {
-        if (ngx_http_zip_clean_range(range, prefix, suffix, ctx) == NGX_ERROR) {
+        if (ngx_http_epub_clean_range(range, prefix, suffix, ctx) == NGX_ERROR) {
             return NGX_ERROR;
         }
     }

@@ -1,73 +1,73 @@
 /* 
- * mod_zip
+ * mod_epub
  *
  * Copyright (C) Evan Miller
  *
  * This module may be distributed under the same terms as Nginx itself.
  */
 
-#include "ngx_http_zip_module.h"
-#include "ngx_http_zip_parsers.h"
-#include "ngx_http_zip_file.h"
-#include "ngx_http_zip_headers.h"
+#include "ngx_http_epub_module.h"
+#include "ngx_http_epub_parsers.h"
+#include "ngx_http_epub_file.h"
+#include "ngx_http_epub_headers.h"
 
 static ngx_chain_t *ngx_chain_last_link(ngx_chain_t *chain_link);
-static ngx_int_t ngx_http_zip_discard_chain(ngx_http_request_t *r,
+static ngx_int_t ngx_http_epub_discard_chain(ngx_http_request_t *r,
         ngx_chain_t *in);
 
-static ngx_int_t ngx_http_zip_ranges_intersect(ngx_http_zip_range_t *range1,
-        ngx_http_zip_range_t *range2);
+static ngx_int_t ngx_http_epub_ranges_intersect(ngx_http_epub_range_t *range1,
+        ngx_http_epub_range_t *range2);
 
-static ngx_int_t ngx_http_zip_copy_unparsed_request(ngx_http_request_t *r,
-        ngx_chain_t *in, ngx_http_zip_ctx_t *ctx);
-static ngx_int_t ngx_http_zip_set_headers(ngx_http_request_t *r, 
-        ngx_http_zip_ctx_t *ctx);
+static ngx_int_t ngx_http_epub_copy_unparsed_request(ngx_http_request_t *r,
+        ngx_chain_t *in, ngx_http_epub_ctx_t *ctx);
+static ngx_int_t ngx_http_epub_set_headers(ngx_http_request_t *r, 
+        ngx_http_epub_ctx_t *ctx);
 
-static ngx_int_t ngx_http_zip_header_filter(ngx_http_request_t *r);
-static ngx_int_t ngx_http_zip_body_filter(ngx_http_request_t *r, 
+static ngx_int_t ngx_http_epub_header_filter(ngx_http_request_t *r);
+static ngx_int_t ngx_http_epub_body_filter(ngx_http_request_t *r, 
         ngx_chain_t *in);
-static ngx_int_t ngx_http_zip_main_request_body_filter(ngx_http_request_t *r,
+static ngx_int_t ngx_http_epub_main_request_body_filter(ngx_http_request_t *r,
         ngx_chain_t *in);
-static ngx_int_t ngx_http_zip_subrequest_body_filter(ngx_http_request_t *r, 
+static ngx_int_t ngx_http_epub_subrequest_body_filter(ngx_http_request_t *r, 
         ngx_chain_t *in);
 
-static ngx_int_t ngx_http_zip_subrequest_update_crc32(ngx_chain_t *in, 
-        ngx_http_zip_file_t *file);
-static ngx_int_t ngx_http_zip_subrequest_done(ngx_http_request_t *r, void *data, ngx_int_t rc);
+static ngx_int_t ngx_http_epub_subrequest_update_crc32(ngx_chain_t *in, 
+        ngx_http_epub_file_t *file);
+static ngx_int_t ngx_http_epub_subrequest_done(ngx_http_request_t *r, void *data, ngx_int_t rc);
 
-static ngx_int_t ngx_http_zip_send_pieces(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx);
-static ngx_int_t ngx_http_zip_send_header_piece(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range);
-static ngx_int_t ngx_http_zip_send_file_piece(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range);
-static ngx_int_t ngx_http_zip_send_directory_piece(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range);
-static ngx_int_t ngx_http_zip_send_trailer_piece(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range);
-static ngx_int_t ngx_http_zip_send_central_directory_piece(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range);
-static ngx_int_t ngx_http_zip_send_piece(ngx_http_request_t *r, 
-        ngx_http_zip_ctx_t *ctx, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range);
+static ngx_int_t ngx_http_epub_send_pieces(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx);
+static ngx_int_t ngx_http_epub_send_header_piece(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range);
+static ngx_int_t ngx_http_epub_send_file_piece(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range);
+static ngx_int_t ngx_http_epub_send_directory_piece(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range);
+static ngx_int_t ngx_http_epub_send_trailer_piece(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range);
+static ngx_int_t ngx_http_epub_send_central_directory_piece(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range);
+static ngx_int_t ngx_http_epub_send_piece(ngx_http_request_t *r, 
+        ngx_http_epub_ctx_t *ctx, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range);
 
-static ngx_int_t ngx_http_zip_send_boundary(ngx_http_request_t *r, 
-        ngx_http_zip_ctx_t *ctx, ngx_http_zip_range_t *range);
-static ngx_int_t ngx_http_zip_send_final_boundary(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx);
+static ngx_int_t ngx_http_epub_send_boundary(ngx_http_request_t *r, 
+        ngx_http_epub_ctx_t *ctx, ngx_http_epub_range_t *range);
+static ngx_int_t ngx_http_epub_send_final_boundary(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx);
 
-static ngx_int_t ngx_http_zip_init(ngx_conf_t *cf);
+static ngx_int_t ngx_http_epub_init(ngx_conf_t *cf);
 
-static ngx_int_t ngx_http_zip_main_request_header_filter(ngx_http_request_t *r);
-static ngx_int_t ngx_http_zip_subrequest_header_filter(ngx_http_request_t *r);
+static ngx_int_t ngx_http_epub_main_request_header_filter(ngx_http_request_t *r);
+static ngx_int_t ngx_http_epub_subrequest_header_filter(ngx_http_request_t *r);
 
-static ngx_str_t ngx_http_zip_header_variable_name = ngx_string("upstream_http_x_archive_files");
+static ngx_str_t ngx_http_epub_header_variable_name = ngx_string("upstream_http_x_archive_files");
 
 static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
-static ngx_http_module_t  ngx_http_zip_module_ctx = {
+static ngx_http_module_t  ngx_http_epub_module_ctx = {
     NULL,                       /* preconfiguration */
-    ngx_http_zip_init,          /* postconfiguration */
+    ngx_http_epub_init,          /* postconfiguration */
 
     NULL,                       /* create main configuration */
     NULL,                       /* init main configuration */
@@ -79,9 +79,9 @@ static ngx_http_module_t  ngx_http_zip_module_ctx = {
     NULL                        /* merge location configuration */
 };
 
-ngx_module_t  ngx_http_zip_module = {
+ngx_module_t  ngx_http_epub_module = {
     NGX_MODULE_V1,
-    &ngx_http_zip_module_ctx,   /* module context */
+    &ngx_http_epub_module_ctx,   /* module context */
     NULL,                       /* module directives */
     NGX_HTTP_MODULE,            /* module type */
     NULL,                       /* init master */
@@ -104,7 +104,7 @@ static ngx_chain_t *ngx_chain_last_link(ngx_chain_t *chain_link)
 }
 
 static ngx_int_t
-ngx_http_zip_discard_chain(ngx_http_request_t *r, ngx_chain_t *in)
+ngx_http_epub_discard_chain(ngx_http_request_t *r, ngx_chain_t *in)
 {
     ngx_chain_t         *chain_link;
 
@@ -121,13 +121,13 @@ ngx_http_zip_discard_chain(ngx_http_request_t *r, ngx_chain_t *in)
 }
 
 static ngx_int_t
-ngx_http_zip_ranges_intersect(ngx_http_zip_range_t *range1, ngx_http_zip_range_t *range2)
+ngx_http_epub_ranges_intersect(ngx_http_epub_range_t *range1, ngx_http_epub_range_t *range2)
 {
     return !(range1->start >= range2->end || range2->start >= range1->end);
 }
 
-static ngx_int_t ngx_http_zip_copy_unparsed_request(ngx_http_request_t *r,
-        ngx_chain_t *in, ngx_http_zip_ctx_t *ctx)
+static ngx_int_t ngx_http_epub_copy_unparsed_request(ngx_http_request_t *r,
+        ngx_chain_t *in, ngx_http_epub_ctx_t *ctx)
 {
     ngx_chain_t *chain_link;
     void *buf;
@@ -146,23 +146,23 @@ static ngx_int_t ngx_http_zip_copy_unparsed_request(ngx_http_request_t *r,
  * The header filter looks for "X-Archive-Files: zip" and allocates
  * a module context struct if found
  */
-static ngx_int_t ngx_http_zip_header_filter(ngx_http_request_t *r)
+static ngx_int_t ngx_http_epub_header_filter(ngx_http_request_t *r)
 {
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: entering header filter");
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: entering header filter");
 
     if (r != r->main)
-        return ngx_http_zip_subrequest_header_filter(r);
+        return ngx_http_epub_subrequest_header_filter(r);
 
-    return ngx_http_zip_main_request_header_filter(r);
+    return ngx_http_epub_main_request_header_filter(r);
 }
 
 static ngx_int_t
-ngx_http_zip_main_request_header_filter(ngx_http_request_t *r)
+ngx_http_epub_main_request_header_filter(ngx_http_request_t *r)
 {
     ngx_http_variable_value_t  *vv;
-    ngx_http_zip_ctx_t         *ctx;
+    ngx_http_epub_ctx_t         *ctx;
 
-    if ((ctx = ngx_http_get_module_ctx(r, ngx_http_zip_module)) != NULL)
+    if ((ctx = ngx_http_get_module_ctx(r, ngx_http_epub_module)) != NULL)
         return ngx_http_next_header_filter(r);
 
     if ((vv = ngx_palloc(r->pool, sizeof(ngx_http_variable_value_t))) == NULL) 
@@ -171,47 +171,47 @@ ngx_http_zip_main_request_header_filter(ngx_http_request_t *r)
     /* Look for X-Archive-Files */
     ngx_int_t variable_header_status = NGX_OK;
     if (r->upstream) {
-        variable_header_status = ngx_http_zip_variable_unknown_header(r, vv,
-                &ngx_http_zip_header_variable_name,
+        variable_header_status = ngx_http_epub_variable_unknown_header(r, vv,
+                &ngx_http_epub_header_variable_name,
                 &r->upstream->headers_in.headers.part, sizeof("upstream_http_") - 1);
     } else if (r->headers_out.status == NGX_HTTP_OK) {
-        variable_header_status = ngx_http_zip_variable_unknown_header(r, vv,
-                &ngx_http_zip_header_variable_name,
+        variable_header_status = ngx_http_epub_variable_unknown_header(r, vv,
+                &ngx_http_epub_header_variable_name,
                 &r->headers_out.headers.part, sizeof("upstream_http_") - 1);
     } else {
         vv->not_found = 1;
     }
 
     if (variable_header_status != NGX_OK || vv->not_found || 
-            ngx_strncmp(vv->data, "zip", sizeof("zip") - 1) != 0) {
+            ngx_strncmp(vv->data, "epub", sizeof("epub") - 1) != 0) {
         return ngx_http_next_header_filter(r);
     }
     
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: X-Archive-Files found");
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: X-Archive-Files found");
 
-    if ((ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_zip_ctx_t))) == NULL 
+    if ((ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_epub_ctx_t))) == NULL 
         || ngx_array_init(&ctx->unparsed_request, r->pool, 64 * 1024, 1) == NGX_ERROR
-        || ngx_array_init(&ctx->files, r->pool, 1, sizeof(ngx_http_zip_file_t)) == NGX_ERROR
-        || ngx_array_init(&ctx->ranges, r->pool, 1, sizeof(ngx_http_zip_range_t)) == NGX_ERROR
+        || ngx_array_init(&ctx->files, r->pool, 1, sizeof(ngx_http_epub_file_t)) == NGX_ERROR
+        || ngx_array_init(&ctx->ranges, r->pool, 1, sizeof(ngx_http_epub_range_t)) == NGX_ERROR
         || ngx_array_init(&ctx->pass_srq_headers, r->pool, 1, sizeof(ngx_str_t)) == NGX_ERROR)
         return NGX_ERROR;
     
-    ngx_http_set_ctx(r, ctx, ngx_http_zip_module);
+    ngx_http_set_ctx(r, ctx, ngx_http_epub_module);
 
     return NGX_OK;
 }
 
 static ngx_int_t
-ngx_http_zip_subrequest_header_filter(ngx_http_request_t *r)
+ngx_http_epub_subrequest_header_filter(ngx_http_request_t *r)
 {
-    ngx_http_zip_ctx_t    *ctx;
+    ngx_http_epub_ctx_t    *ctx;
 
-    ctx = ngx_http_get_module_ctx(r->main, ngx_http_zip_module);
+    ctx = ngx_http_get_module_ctx(r->main, ngx_http_epub_module);
     if (ctx != NULL) {
         if (r->headers_out.status != NGX_HTTP_OK &&
                 r->headers_out.status != NGX_HTTP_PARTIAL_CONTENT) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                    "mod_zip: a subrequest returned %d, aborting...",
+                    "mod_epub: a subrequest returned %d, aborting...",
                     r->headers_out.status);
             ctx->abort = 1;
             return NGX_ERROR;
@@ -224,32 +224,32 @@ ngx_http_zip_subrequest_header_filter(ngx_http_request_t *r)
 }
 
 static ngx_int_t
-ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_set_headers(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx)
 {
     time_t if_range, last_modified;
 
-    if (ngx_http_zip_add_cache_control(r) == NGX_ERROR) {
+    if (ngx_http_epub_add_cache_control(r) == NGX_ERROR) {
         return NGX_ERROR;
     }
 
-    r->headers_out.content_type_len = sizeof(NGX_ZIP_MIME_TYPE) - 1;
-    ngx_str_set(&r->headers_out.content_type, NGX_ZIP_MIME_TYPE);
+    r->headers_out.content_type_len = sizeof(MGX_EPUB_MIME_TYPE) - 1;
+    ngx_str_set(&r->headers_out.content_type, MGX_EPUB_MIME_TYPE);
     ngx_http_clear_content_length(r);
 
     if (ctx->missing_crc32) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: Clearing Accept-Ranges header");
+                "mod_epub: Clearing Accept-Ranges header");
         ngx_http_clear_accept_ranges(r);
     }
     r->headers_out.content_length_n = ctx->archive_size;
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "mod_zip: Archive will be %O bytes", ctx->archive_size);
+            "mod_epub: Archive will be %O bytes", ctx->archive_size);
     if (r->headers_in.range) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: Range found");
+                "mod_epub: Range found");
         if (ctx->missing_crc32) {
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                    "mod_zip: Missing checksums, ignoring Range");
+                    "mod_epub: Missing checksums, ignoring Range");
             return NGX_OK;
         }
         if (r->headers_in.if_range && r->upstream) {
@@ -258,7 +258,7 @@ ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
             if (if_range == NGX_ERROR) { /* treat as ETag */
                 if (r->upstream->headers_in.etag) {
                     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                            "mod_zip: If-Range = %V, ETag = %V", 
+                            "mod_epub: If-Range = %V, ETag = %V", 
                             &r->headers_in.if_range->value, &r->upstream->headers_in.etag->value);
                     if (r->upstream->headers_in.etag->value.len != r->headers_in.if_range->value.len
                             || ngx_strncmp(r->upstream->headers_in.etag->value.data,
@@ -268,7 +268,7 @@ ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
                     }
                 } else {
                     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                            "mod_zip: No ETag from upstream");
+                            "mod_epub: No ETag from upstream");
                     return NGX_OK;
                 }
             } else { /* treat as modification time */
@@ -276,37 +276,37 @@ ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
                     last_modified = ngx_http_parse_time(r->upstream->headers_in.last_modified->value.data,
                             r->upstream->headers_in.last_modified->value.len);
                     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                            "mod_zip: If-Range = %d, Last-Modified = %d", 
+                            "mod_epub: If-Range = %d, Last-Modified = %d", 
                             if_range, last_modified);
                     if (if_range != last_modified && last_modified != -1) {
                         return NGX_OK;
                     }
                 } else {
                     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                            "mod_zip: No Last-Modified from upstream");
+                            "mod_epub: No Last-Modified from upstream");
                     return NGX_OK;
                 }
             }
         }
-        if (ngx_http_zip_parse_range(r, &r->headers_in.range->value, ctx) 
+        if (ngx_http_epub_parse_range(r, &r->headers_in.range->value, ctx) 
                 == NGX_ERROR) {
             r->headers_out.status = NGX_HTTP_RANGE_NOT_SATISFIABLE;
-            if (ngx_http_zip_add_full_content_range(r) == NGX_ERROR) {
+            if (ngx_http_epub_add_full_content_range(r) == NGX_ERROR) {
                 return NGX_ERROR;
             }
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                    "mod_zip: Range not satisfiable");
+                    "mod_epub: Range not satisfiable");
             ctx->ranges.nelts = 0;
             return NGX_HTTP_RANGE_NOT_SATISFIABLE;
         }
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: Range is satisfiable");
+                "mod_epub: Range is satisfiable");
         if (ctx->ranges.nelts == 1) {
-            if (ngx_http_zip_add_partial_content_range(r, ctx) == NGX_ERROR) {
+            if (ngx_http_epub_add_partial_content_range(r, ctx) == NGX_ERROR) {
                 return NGX_ERROR;
             }
         } else {
-            if (ngx_http_zip_init_multipart_range(r, ctx) == NGX_ERROR) {
+            if (ngx_http_epub_init_multipart_range(r, ctx) == NGX_ERROR) {
                 return NGX_ERROR;
             }
         }
@@ -318,31 +318,31 @@ ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
 }
 
 static ngx_int_t 
-ngx_http_zip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
+ngx_http_epub_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 {
     if (r != r->main) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: entering subrequest body filter");
-        return ngx_http_zip_subrequest_body_filter(r, in);
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: entering subrequest body filter");
+        return ngx_http_epub_subrequest_body_filter(r, in);
     }
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: entering main request body filter");
-    return ngx_http_zip_main_request_body_filter(r, in);
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: entering main request body filter");
+    return ngx_http_epub_main_request_body_filter(r, in);
 }
 
 static ngx_int_t
-ngx_http_zip_subrequest_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
+ngx_http_epub_subrequest_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 {
-    ngx_http_zip_sr_ctx_t *sr_ctx;
+    ngx_http_epub_sr_ctx_t *sr_ctx;
 
-    sr_ctx = ngx_http_get_module_ctx(r, ngx_http_zip_module);
+    sr_ctx = ngx_http_get_module_ctx(r, ngx_http_epub_module);
 
     if (in && sr_ctx && sr_ctx->requesting_file->missing_crc32) {
         uint32_t old_crc32 = sr_ctx->requesting_file->crc32;
 
-        ngx_http_zip_subrequest_update_crc32(in, sr_ctx->requesting_file);
+        ngx_http_epub_subrequest_update_crc32(in, sr_ctx->requesting_file);
 
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, 
-                "mod_zip: updated CRC-32 (%08Xd -> %08Xd)", old_crc32, sr_ctx->requesting_file->crc32);
+                "mod_epub: updated CRC-32 (%08Xd -> %08Xd)", old_crc32, sr_ctx->requesting_file->crc32);
 
         (void)old_crc32;
     }
@@ -351,8 +351,8 @@ ngx_http_zip_subrequest_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 }
 
 static ngx_int_t
-ngx_http_zip_subrequest_update_crc32(ngx_chain_t *in, 
-        ngx_http_zip_file_t *file)
+ngx_http_epub_subrequest_update_crc32(ngx_chain_t *in, 
+        ngx_http_epub_file_t *file)
 {
     ngx_chain_t *cl;
     size_t       len;
@@ -372,28 +372,28 @@ ngx_http_zip_subrequest_update_crc32(ngx_chain_t *in,
 }
 
 static ngx_int_t
-ngx_http_zip_subrequest_done(ngx_http_request_t *r, void *data, ngx_int_t rc)
+ngx_http_epub_subrequest_done(ngx_http_request_t *r, void *data, ngx_int_t rc)
 {
-    ngx_http_zip_piece_t *piece = (ngx_http_zip_piece_t *)data;
+    ngx_http_epub_piece_t *piece = (ngx_http_epub_piece_t *)data;
 
     (void)piece; /* fix warning */
 
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "mod_zip: subrequest for \"%V?%V\" done, result %d",
+            "mod_epub: subrequest for \"%V?%V\" done, result %d",
             &piece->file->uri, &piece->file->args, rc);
 
     return rc;
 }
 
 static ngx_int_t
-ngx_http_zip_main_request_body_filter(ngx_http_request_t *r,
+ngx_http_epub_main_request_body_filter(ngx_http_request_t *r,
         ngx_chain_t *in)
 {
-    ngx_http_zip_ctx_t   *ctx;
+    ngx_http_epub_ctx_t   *ctx;
     ngx_chain_t          *chain_link;
     int rc;
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_zip_module);
+    ctx = ngx_http_get_module_ctx(r, ngx_http_epub_module);
 
     if (ctx == NULL || ctx->trailer_sent) {
         return ngx_http_next_body_filter(r, in);
@@ -410,38 +410,38 @@ ngx_http_zip_main_request_body_filter(ngx_http_request_t *r,
 
     if (ctx->parsed) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: restarting subrequests");
-        return ngx_http_zip_send_pieces(r, ctx);
+                "mod_epub: restarting subrequests");
+        return ngx_http_epub_send_pieces(r, ctx);
     }
 
     if (in == NULL) {
         return ngx_http_next_body_filter(r, NULL);
     }
 
-    rc = ngx_http_zip_copy_unparsed_request(r, in, ctx);
+    rc = ngx_http_epub_copy_unparsed_request(r, in, ctx);
     if (rc == NGX_AGAIN) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: not the last buf");
-        return ngx_http_zip_discard_chain(r, in);
+                "mod_epub: not the last buf");
+        return ngx_http_epub_discard_chain(r, in);
     } else if (rc == NGX_ERROR) {
         return NGX_ERROR;
     }
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "mod_zip: about to parse list");
+            "mod_epub: about to parse list");
 
-    if (ngx_http_zip_parse_request(ctx) == NGX_ERROR) {
+    if (ngx_http_epub_parse_request(ctx) == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "mod_zip: invalid file list from upstream");
+                "mod_epub: invalid file list from upstream");
         return NGX_ERROR;
     }
 
-    if (ngx_http_zip_generate_pieces(r, ctx) == NGX_ERROR) {
+    if (ngx_http_epub_generate_pieces(r, ctx) == NGX_ERROR) {
         return NGX_ERROR;
     }
 
     if (!r->header_sent) {
-        rc = ngx_http_zip_set_headers(r, ctx);
+        rc = ngx_http_epub_set_headers(r, ctx);
         if (rc == NGX_ERROR) {
             return NGX_ERROR;
         }
@@ -458,49 +458,49 @@ ngx_http_zip_main_request_body_filter(ngx_http_request_t *r,
     chain_link = ngx_chain_last_link(in);
     chain_link->buf->last_buf = 0;
 
-    if (ngx_http_zip_strip_range_header(r) == NGX_ERROR) {
+    if (ngx_http_epub_strip_range_header(r) == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "mod_zip: failed to strip Range: header from request");
+                "mod_epub: failed to strip Range: header from request");
         return NGX_ERROR;
     }
 
-    return ngx_http_zip_send_pieces(r, ctx);
+    return ngx_http_epub_send_pieces(r, ctx);
 }
 
 static ngx_int_t
-ngx_http_zip_send_header_piece(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
-        ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *range)
+ngx_http_epub_send_header_piece(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx,
+        ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *range)
 {
     ngx_chain_t *link;
-    if ((link = ngx_http_zip_file_header_chain_link(r, ctx, piece, range)) == NULL)
+    if ((link = ngx_http_epub_file_header_chain_link(r, ctx, piece, range)) == NULL)
         return NGX_ERROR;
     return ngx_http_next_body_filter(r, link);
 }
 
 static ngx_int_t
-ngx_http_zip_send_file_piece(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
-        ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range)
+ngx_http_epub_send_file_piece(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx,
+        ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range)
 {
-    ngx_http_zip_sr_ctx_t *sr_ctx;
+    ngx_http_epub_sr_ctx_t *sr_ctx;
     ngx_http_request_t *sr;
     ngx_http_post_subrequest_t *ps;
     ngx_int_t rc;
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "mod_zip: subrequest for \"%V?%V\"", &piece->file->uri, &piece->file->args);
+            "mod_epub: subrequest for \"%V?%V\"", &piece->file->uri, &piece->file->args);
     // need to check if the context has something going on....
     if (ctx->wait) {
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: have a wait context for \"%V?%V\"",
+                "mod_epub: have a wait context for \"%V?%V\"",
                 &ctx->wait->uri, &ctx->wait->args);
         if (!ctx->wait->done) {
             ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                    "mod_zip: wait NOT DONE  \"%V?%V\"",
+                    "mod_epub: wait NOT DONE  \"%V?%V\"",
                     &ctx->wait->uri, &ctx->wait->args);
             return NGX_AGAIN;
         }
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: wait \"%V?%V\" done",
+                "mod_epub: wait \"%V?%V\" done",
                 &ctx->wait->uri, &ctx->wait->args);
         ctx->wait = NULL;
     }
@@ -510,12 +510,12 @@ ngx_http_zip_send_file_piece(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
         return NGX_ERROR;
     }
 
-    ps->handler = ngx_http_zip_subrequest_done;
+    ps->handler = ngx_http_epub_subrequest_done;
     ps->data = piece;
 
     rc = ngx_http_subrequest(r, &piece->file->uri, &piece->file->args, &sr, ps, NGX_HTTP_SUBREQUEST_WAITED);
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "mod_zip: subrequest for \"%V?%V\" initiated, result %d", 
+            "mod_epub: subrequest for \"%V?%V\" initiated, result %d", 
             &piece->file->uri, &piece->file->args, rc);
 
     if (rc == NGX_ERROR) {
@@ -526,42 +526,42 @@ ngx_http_zip_send_file_piece(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
     sr->subrequest_ranges = 1;
     sr->single_range = 1;
 
-    rc = ngx_http_zip_init_subrequest_headers(r, ctx, sr, &piece->range, req_range);
+    rc = ngx_http_epub_init_subrequest_headers(r, ctx, sr, &piece->range, req_range);
     if (sr->headers_in.range) {
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: subrequest for \"%V?%V\" Range: %V", 
+                "mod_epub: subrequest for \"%V?%V\" Range: %V", 
                 &piece->file->uri, &piece->file->args, &sr->headers_in.range->value);
     }
     if (rc == NGX_ERROR) {
         return NGX_ERROR;
     }
 
-    if ((sr_ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_zip_sr_ctx_t))) == NULL) {
+    if ((sr_ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_epub_sr_ctx_t))) == NULL) {
         return NGX_ERROR;
     }
 
     sr_ctx->requesting_file = piece->file;
 
-    ngx_http_set_ctx(sr, sr_ctx, ngx_http_zip_module);
+    ngx_http_set_ctx(sr, sr_ctx, ngx_http_epub_module);
     if (ctx->wait) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "mod_zip : only one subrequest may be waited at the same time; ");
+                "mod_epub : only one subrequest may be waited at the same time; ");
         return NGX_ERROR;
     }
     ctx->wait = sr;
     return NGX_AGAIN;   // must be NGX_AGAIN
 }
 
-static ngx_int_t ngx_http_zip_send_directory_piece(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range)
+static ngx_int_t ngx_http_epub_send_directory_piece(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range)
 {
     // Directory has no data.
     return NGX_OK;
 }
 
 static ngx_int_t
-ngx_http_zip_send_trailer_piece(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
-        ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range)
+ngx_http_epub_send_trailer_piece(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx,
+        ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range)
 {
     ngx_chain_t *link;
 
@@ -570,54 +570,54 @@ ngx_http_zip_send_trailer_piece(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
         ngx_crc32_final(piece->file->crc32);
 
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: finalized CRC-32 (%08Xd -> %08Xd)", old_crc32, piece->file->crc32);
+                "mod_epub: finalized CRC-32 (%08Xd -> %08Xd)", old_crc32, piece->file->crc32);
         (void)old_crc32;
     }
 
-    if ((link = ngx_http_zip_data_descriptor_chain_link(r, piece, req_range)) == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: data descriptor failed");
+    if ((link = ngx_http_epub_data_descriptor_chain_link(r, piece, req_range)) == NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: data descriptor failed");
         return NGX_ERROR;
     }
     return ngx_http_next_body_filter(r, link);
 }
 
 static ngx_int_t
-ngx_http_zip_send_central_directory_piece(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
-        ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range)
+ngx_http_epub_send_central_directory_piece(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx,
+        ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range)
 {
     ngx_chain_t *link;
 
-    if ((link = ngx_http_zip_central_directory_chain_link(r, ctx, piece, req_range)) == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: CD piece failed");
+    if ((link = ngx_http_epub_central_directory_chain_link(r, ctx, piece, req_range)) == NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: CD piece failed");
         return NGX_ERROR;
     }
     return ngx_http_next_body_filter(r, link);
 }
 
 static ngx_int_t
-ngx_http_zip_send_piece(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
-        ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *req_range)
+ngx_http_epub_send_piece(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx,
+        ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *req_range)
 {
     ngx_int_t rc = NGX_ERROR;
 
     if (piece->type == zip_header_piece) {
-        rc = ngx_http_zip_send_header_piece(r, ctx, piece, req_range);
+        rc = ngx_http_epub_send_header_piece(r, ctx, piece, req_range);
     } else if (piece->type == zip_file_piece) {
-        rc = ngx_http_zip_send_file_piece(r, ctx, piece, req_range);
+        rc = ngx_http_epub_send_file_piece(r, ctx, piece, req_range);
     } else if (piece->type == zip_dir_piece) {
-        rc = ngx_http_zip_send_directory_piece(r, ctx, piece, req_range);
+        rc = ngx_http_epub_send_directory_piece(r, ctx, piece, req_range);
     } else if (piece->type == zip_trailer_piece) {
-        rc = ngx_http_zip_send_trailer_piece(r, ctx, piece, req_range);
+        rc = ngx_http_epub_send_trailer_piece(r, ctx, piece, req_range);
     } else if (piece->type == zip_central_directory_piece) {
-        rc = ngx_http_zip_send_central_directory_piece(r, ctx, piece, req_range);
+        rc = ngx_http_epub_send_central_directory_piece(r, ctx, piece, req_range);
     }
 
     return rc;
 }
 
 static ngx_int_t
-ngx_http_zip_send_boundary(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
-        ngx_http_zip_range_t *range)
+ngx_http_epub_send_boundary(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx,
+        ngx_http_epub_range_t *range)
 {
     ngx_chain_t *link;
     ngx_buf_t   *b;
@@ -641,7 +641,7 @@ ngx_http_zip_send_boundary(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
 }
 
 static ngx_int_t
-ngx_http_zip_send_final_boundary(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_send_final_boundary(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx)
 {
     size_t len;
     ngx_chain_t *link;
@@ -667,54 +667,54 @@ ngx_http_zip_send_final_boundary(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
 
 /* Initiate one or more subrequests for files to put in the ZIP archive */
 static ngx_int_t
-ngx_http_zip_send_pieces(ngx_http_request_t *r, 
-        ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_send_pieces(ngx_http_request_t *r, 
+        ngx_http_epub_ctx_t *ctx)
 {
     ngx_int_t             rc = NGX_OK, pieces_sent = 0;
-    ngx_http_zip_piece_t *piece;
-    ngx_http_zip_range_t *req_range = NULL;
+    ngx_http_epub_piece_t *piece;
+    ngx_http_epub_range_t *req_range = NULL;
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "mod_zip: sending pieces, starting with piece %d of total %d", ctx->pieces_i, ctx->pieces_n);
+            "mod_epub: sending pieces, starting with piece %d of total %d", ctx->pieces_i, ctx->pieces_n);
 
     switch(ctx->ranges.nelts) {
         case 0:
             while (rc == NGX_OK && ctx->pieces_i < ctx->pieces_n) {
                 piece = &ctx->pieces[ctx->pieces_i++];
                 pieces_sent++;
-                ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: no ranges / sending piece type %d", piece->type);
-                rc = ngx_http_zip_send_piece(r, ctx, piece, NULL);
+                ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: no ranges / sending piece type %d", piece->type);
+                rc = ngx_http_epub_send_piece(r, ctx, piece, NULL);
                 if (rc == NGX_AGAIN && r->connection->buffered && !r->postponed) {
                     rc = NGX_OK;
                 }
             }
             break;
         case 1:
-            req_range = &((ngx_http_zip_range_t *)ctx->ranges.elts)[0];
+            req_range = &((ngx_http_epub_range_t *)ctx->ranges.elts)[0];
             while (rc == NGX_OK && ctx->pieces_i < ctx->pieces_n) {
                 piece = &ctx->pieces[ctx->pieces_i++];
-                if (ngx_http_zip_ranges_intersect(&piece->range, req_range)) {
+                if (ngx_http_epub_ranges_intersect(&piece->range, req_range)) {
                     pieces_sent++;
-                    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: 1 range / sending piece type %d", piece->type);
-                    rc = ngx_http_zip_send_piece(r, ctx, piece, req_range);
+                    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: 1 range / sending piece type %d", piece->type);
+                    rc = ngx_http_epub_send_piece(r, ctx, piece, req_range);
                 }
             }
             break;
         default:
             while (rc == NGX_OK && ctx->ranges_i < ctx->ranges.nelts) {
-                req_range = &((ngx_http_zip_range_t *)ctx->ranges.elts)[ctx->ranges_i];
+                req_range = &((ngx_http_epub_range_t *)ctx->ranges.elts)[ctx->ranges_i];
                 ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                        "mod_zip: sending range #%d start=%O end=%O (size %d)", 
+                        "mod_epub: sending range #%d start=%O end=%O (size %d)", 
                         ctx->ranges_i, req_range->start, req_range->end, req_range->boundary_header.len);
-                rc = ngx_http_zip_send_boundary(r, ctx, req_range);
+                rc = ngx_http_epub_send_boundary(r, ctx, req_range);
                 while (rc == NGX_OK && ctx->pieces_i < ctx->pieces_n) {
                     piece = &ctx->pieces[ctx->pieces_i++];
-                    if (ngx_http_zip_ranges_intersect(&piece->range, req_range)) {
+                    if (ngx_http_epub_ranges_intersect(&piece->range, req_range)) {
                         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                                "mod_zip: sending range=%d piece=%d",
+                                "mod_epub: sending range=%d piece=%d",
                                 ctx->ranges_i, pieces_sent);
                         pieces_sent++;
-                        rc = ngx_http_zip_send_piece(r, ctx, piece, req_range);
+                        rc = ngx_http_epub_send_piece(r, ctx, piece, req_range);
                     }
                 }
 
@@ -726,14 +726,14 @@ ngx_http_zip_send_pieces(ngx_http_request_t *r,
 
             if (rc == NGX_OK) {
                 ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                        "mod_zip: sending final boundary");
-                rc = ngx_http_zip_send_final_boundary(r, ctx);
+                        "mod_epub: sending final boundary");
+                rc = ngx_http_epub_send_final_boundary(r, ctx);
             }
             break;
     }
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "mod_zip: sent %d pieces, last rc = %d", pieces_sent, rc);
+            "mod_epub: sent %d pieces, last rc = %d", pieces_sent, rc);
 
     if (rc == NGX_OK) {
         ctx->trailer_sent = 1;
@@ -746,13 +746,13 @@ ngx_http_zip_send_pieces(ngx_http_request_t *r,
 
 /* Install the module filters */
 static ngx_int_t
-ngx_http_zip_init(ngx_conf_t *cf)
+ngx_http_epub_init(ngx_conf_t *cf)
 {
     ngx_http_next_header_filter = ngx_http_top_header_filter;
-    ngx_http_top_header_filter = ngx_http_zip_header_filter;
+    ngx_http_top_header_filter = ngx_http_epub_header_filter;
 
     ngx_http_next_body_filter = ngx_http_top_body_filter;
-    ngx_http_top_body_filter = ngx_http_zip_body_filter;
+    ngx_http_top_body_filter = ngx_http_epub_body_filter;
 
     return NGX_OK;
 }

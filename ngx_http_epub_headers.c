@@ -1,9 +1,9 @@
-#include "ngx_http_zip_module.h"
-#include "ngx_http_zip_headers.h"
-#include "ngx_http_zip_file.h"
+#include "ngx_http_epub_module.h"
+#include "ngx_http_epub_headers.h"
+#include "ngx_http_epub_file.h"
 
 static ngx_uint_t
-ngx_http_zip_find_key_in_set(ngx_str_t *key, ngx_array_t *set)
+ngx_http_epub_find_key_in_set(ngx_str_t *key, ngx_array_t *set)
 {
     ngx_uint_t i;
     ngx_str_t  *items = set->elts;
@@ -19,7 +19,7 @@ ngx_http_zip_find_key_in_set(ngx_str_t *key, ngx_array_t *set)
 }
 
 ngx_int_t 
-ngx_http_zip_add_cache_control(ngx_http_request_t *r)
+ngx_http_epub_add_cache_control(ngx_http_request_t *r)
 {
 #ifdef NGX_ZIP_MULTI_HEADERS_LINKED_LISTS
     ngx_table_elt_t            *cc;
@@ -96,7 +96,7 @@ ngx_http_zip_add_cache_control(ngx_http_request_t *r)
 }
 
 ngx_int_t 
-ngx_http_zip_add_content_range_header(ngx_http_request_t *r)
+ngx_http_epub_add_content_range_header(ngx_http_request_t *r)
 {
     ngx_table_elt_t              *content_range;
 
@@ -119,11 +119,11 @@ ngx_http_zip_add_content_range_header(ngx_http_request_t *r)
 }
 
 ngx_int_t 
-ngx_http_zip_add_full_content_range(ngx_http_request_t *r)
+ngx_http_epub_add_full_content_range(ngx_http_request_t *r)
 {
     ngx_table_elt_t              *content_range;
 
-    if (ngx_http_zip_add_content_range_header(r) == NGX_ERROR) {
+    if (ngx_http_epub_add_content_range_header(r) == NGX_ERROR) {
         return NGX_ERROR;
     }
 
@@ -146,15 +146,15 @@ ngx_http_zip_add_full_content_range(ngx_http_request_t *r)
 }
 
 ngx_int_t
-ngx_http_zip_init_multipart_range(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_init_multipart_range(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx)
 {
     ngx_uint_t i;
-    ngx_http_zip_range_t *range;
+    ngx_http_epub_range_t *range;
     size_t len, message_len = 0;
 
     len = sizeof(CRLF "--") - 1 + NGX_ATOMIC_T_LEN
-        + sizeof(CRLF "Content-Type: " NGX_ZIP_MIME_TYPE) - 1
+        + sizeof(CRLF "Content-Type: " MGX_EPUB_MIME_TYPE) - 1
         + sizeof(CRLF "Content-Range: bytes ") - 1
         + sizeof(/* start */ "-" /* end */ "/" /* size */ CRLF CRLF) - 1
         + 3 * NGX_OFF_T_LEN;
@@ -174,7 +174,7 @@ ngx_http_zip_init_multipart_range(ngx_http_request_t *r,
         - r->headers_out.content_type.data;
 
     for (i=0; i < ctx->ranges.nelts; i++) {
-        range = &((ngx_http_zip_range_t *)ctx->ranges.elts)[i];
+        range = &((ngx_http_epub_range_t *)ctx->ranges.elts)[i];
         range->boundary_header.data = ngx_palloc(r->pool, len);
         if (range->boundary_header.data == NULL) {
             return NGX_ERROR;
@@ -182,13 +182,13 @@ ngx_http_zip_init_multipart_range(ngx_http_request_t *r,
 
         range->boundary_header.len = ngx_sprintf(range->boundary_header.data,
                 CRLF "--%0muA" CRLF
-                "Content-Type: " NGX_ZIP_MIME_TYPE CRLF
+                "Content-Type: " MGX_EPUB_MIME_TYPE CRLF
                 "Content-Range: bytes %O-%O/%O" CRLF CRLF,
                 ctx->boundary, range->start, range->end - 1, ctx->archive_size)
             - range->boundary_header.data;
 
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "mod_zip: Allocating boundary for range start=%O end=%O (size %d)",
+                "mod_epub: Allocating boundary for range start=%O end=%O (size %d)",
                 range->start, range->end, range->boundary_header.len);
 
         message_len += range->boundary_header.len + (range->end - range->start);
@@ -202,19 +202,19 @@ ngx_http_zip_init_multipart_range(ngx_http_request_t *r,
 }
 
 ngx_int_t 
-ngx_http_zip_add_partial_content_range(ngx_http_request_t *r,
-        ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_add_partial_content_range(ngx_http_request_t *r,
+        ngx_http_epub_ctx_t *ctx)
 {
     ngx_table_elt_t      *content_range;
-    ngx_http_zip_range_t *range;
+    ngx_http_epub_range_t *range;
 
-    if (ngx_http_zip_add_content_range_header(r) == NGX_ERROR) {
+    if (ngx_http_epub_add_content_range_header(r) == NGX_ERROR) {
         return NGX_ERROR;
     }
 
     content_range = r->headers_out.content_range;
 
-    range = &((ngx_http_zip_range_t *)ctx->ranges.elts)[0];
+    range = &((ngx_http_epub_range_t *)ctx->ranges.elts)[0];
 
     if (content_range == NULL) {
         return NGX_ERROR;
@@ -238,7 +238,7 @@ ngx_http_zip_add_partial_content_range(ngx_http_request_t *r,
 }
 
 ngx_int_t
-ngx_http_zip_strip_range_header(ngx_http_request_t *r)
+ngx_http_epub_strip_range_header(ngx_http_request_t *r)
 {
     ngx_table_elt_t    *header;
 
@@ -253,9 +253,9 @@ ngx_http_zip_strip_range_header(ngx_http_request_t *r)
 }
 
 ngx_int_t
-ngx_http_zip_init_subrequest_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
-        ngx_http_request_t *sr, ngx_http_zip_range_t *piece_range,
-        ngx_http_zip_range_t *req_range)
+ngx_http_epub_init_subrequest_headers(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx,
+        ngx_http_request_t *sr, ngx_http_epub_range_t *piece_range,
+        ngx_http_epub_range_t *req_range)
 {
     ngx_list_t new_headers;
 
@@ -275,7 +275,7 @@ ngx_http_zip_init_subrequest_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *
             h = next_part->elts;
 
             for (i = 0; i < next_part->nelts; ++i) {
-                if (ngx_http_zip_find_key_in_set(&h[i].key, &ctx->pass_srq_headers)) {
+                if (ngx_http_epub_find_key_in_set(&h[i].key, &ctx->pass_srq_headers)) {
                     ngx_memcpy(ngx_list_push(&new_headers), &h[i], sizeof(ngx_table_elt_t));
                 }
             }
@@ -319,7 +319,7 @@ ngx_http_zip_init_subrequest_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *
 
 
 ngx_int_t
-ngx_http_zip_variable_unknown_header(ngx_http_request_t *r,
+ngx_http_epub_variable_unknown_header(ngx_http_request_t *r,
                                  ngx_http_variable_value_t *v, ngx_str_t *var,
                                  ngx_list_part_t *part, size_t prefix)
 {

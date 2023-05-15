@@ -1,16 +1,16 @@
-ngx_addon_name=ngx_http_zip_module
+ngx_addon_name=ngx_http_epub_module
 
 if [ $ngx_module_link = DYNAMIC ] ; then
-    ngx_module_name=ngx_http_zip_module
-    ngx_module_srcs="$ngx_addon_dir/ngx_http_zip_module.c $ngx_addon_dir/ngx_http_zip_parsers.c $ngx_addon_dir/ngx_http_zip_file.c $ngx_addon_dir/ngx_http_zip_headers.c"
+    ngx_module_name=ngx_http_epub_module
+    ngx_module_srcs="$ngx_addon_dir/ngx_http_epub_module.c $ngx_addon_dir/ngx_http_epub_parsers.c $ngx_addon_dir/ngx_http_epub_file.c $ngx_addon_dir/ngx_http_epub_headers.c"
 
     . auto/module
 elif [ $ngx_module_link = ADDON ] ; then
-    HTTP_AUX_FILTER_MODULES="$HTTP_AUX_FILTER_MODULES ngx_http_zip_module"
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_zip_module.c"
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_zip_parsers.c"
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_zip_file.c"
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_zip_headers.c"
+    HTTP_AUX_FILTER_MODULES="$HTTP_AUX_FILTER_MODULES ngx_http_epub_module"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_epub_module.c"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_epub_parsers.c"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_epub_file.c"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_epub_headers.c"
 
     . auto/module    
 fi

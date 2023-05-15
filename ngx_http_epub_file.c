@@ -1,19 +1,19 @@
 
-#include "ngx_http_zip_module.h"
-#include "ngx_http_zip_file.h"
-#include "ngx_http_zip_file_format.h"
-#include "ngx_http_zip_endian.h"
-#include "ngx_http_zip_headers.h"
+#include "ngx_http_epub_module.h"
+#include "ngx_http_epub_file.h"
+#include "ngx_http_epub_file_format.h"
+#include "ngx_http_epub_endian.h"
+#include "ngx_http_epub_headers.h"
 
 #ifdef NGX_ZIP_HAVE_ICONV
 #include <iconv.h>
 #endif
 
 #ifdef NGX_ZIP_HAVE_ICONV
-static ngx_str_t ngx_http_zip_header_charset_name = ngx_string("upstream_http_x_archive_charset");
+static ngx_str_t ngx_http_epub_header_charset_name = ngx_string("upstream_http_x_archive_charset");
 #endif
-static ngx_str_t ngx_http_zip_header_name_separator = ngx_string("upstream_http_x_archive_name_sep");
-static ngx_str_t ngx_http_zip_header_name_pass_headers = ngx_string("upstream_http_x_archive_pass_headers");
+static ngx_str_t ngx_http_epub_header_name_separator = ngx_string("upstream_http_x_archive_name_sep");
+static ngx_str_t ngx_http_epub_header_name_pass_headers = ngx_string("upstream_http_x_archive_pass_headers");
 
 #define NGX_MAX_UINT16_VALUE 0xffff
 
@@ -163,8 +163,8 @@ static ngx_uint_t ngx_dos_time(time_t t)
 }
 
 static void
-ngx_http_zip_truncate_buffer(ngx_buf_t *b,
-        ngx_http_zip_range_t *piece_range, ngx_http_zip_range_t *req_range)
+ngx_http_epub_truncate_buffer(ngx_buf_t *b,
+        ngx_http_epub_range_t *piece_range, ngx_http_epub_range_t *req_range)
 {
     if (req_range && piece_range && b) {
         if (req_range->end < piece_range->end)
@@ -175,7 +175,7 @@ ngx_http_zip_truncate_buffer(ngx_buf_t *b,
 }
 
 static const char *
-ngx_http_zip_strnrstr(const char * str, ngx_uint_t n,
+ngx_http_epub_strnrstr(const char * str, ngx_uint_t n,
                      const char * sub_str, ngx_uint_t sub_n)
 {
     ngx_int_t max_shift = n - sub_n;
@@ -197,14 +197,14 @@ ngx_http_zip_strnrstr(const char * str, ngx_uint_t n,
 
 // make our proposed ZIP-file chunk map
 ngx_int_t
-ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
+ngx_http_epub_generate_pieces(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx)
 {
     ngx_uint_t i, piece_i;
     off_t offset = 0;
     time_t unix_time = 0;
     ngx_uint_t dos_time = 0;
-    ngx_http_zip_file_t  *file;
-    ngx_http_zip_piece_t *header_piece, *file_piece, *trailer_piece, *cd_piece;
+    ngx_http_epub_file_t  *file;
+    ngx_http_epub_piece_t *header_piece, *file_piece, *trailer_piece, *cd_piece;
     ngx_http_variable_value_t  *vv;
 
     if ((vv = ngx_palloc(r->pool, sizeof(ngx_http_variable_value_t))) == NULL)
@@ -220,7 +220,7 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
     // Sometimes there might be a problem converting UTF-8 to zips native
     // charset(CP866), because it's not 1:1 conversion. So my solution is to
     // developers provide their own version of converted filename and pass it
-    // to mod_zip along with UTF-8 filename which will go straight to Unicode
+    // to mod_epub along with UTF-8 filename which will go straight to Unicode
     // path extra field (thanks to tony2001). So separator is a solution that doesn't
     // break current format. And allows passing file name in both formats as one string.
     //
@@ -254,7 +254,7 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
     // because UFT-8 flag (zip_utf8_flag) is set default for templates.
     ngx_int_t variable_header_status = NGX_OK;
     if (r->upstream) {
-        variable_header_status = ngx_http_zip_variable_unknown_header(r, vv, &ngx_http_zip_header_name_separator,
+        variable_header_status = ngx_http_epub_variable_unknown_header(r, vv, &ngx_http_epub_header_name_separator,
                 &r->upstream->headers_in.headers.part, sizeof("upstream_http_")-1);
     } else {
         vv->not_found = 1;
@@ -268,7 +268,7 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
 #ifdef NGX_ZIP_HAVE_ICONV
         variable_header_status = NGX_OK;
         if (r->upstream) {
-            variable_header_status = ngx_http_zip_variable_unknown_header(r, vv, &ngx_http_zip_header_charset_name,
+            variable_header_status = ngx_http_epub_variable_unknown_header(r, vv, &ngx_http_epub_header_charset_name,
                     &r->upstream->headers_in.headers.part, sizeof("upstream_http_")-1);
         } else {
             vv->not_found = 1;
@@ -283,7 +283,7 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
                 iconv_cd = iconv_open((const char *)encoding, "utf-8");
                 if (iconv_cd == (iconv_t)(-1)) {
                     ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                                  "mod_zip: iconv_open('%s', 'utf-8') failed",
+                                  "mod_epub: iconv_open('%s', 'utf-8') failed",
                                   vv->data);
                     iconv_cd = NULL;
                 }
@@ -303,14 +303,14 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
     // plus file footer (CD + [zip64 end + zip64 locator +] end of cd) in one chunk
     ctx->pieces_n = ctx->files.nelts * (2 + (!!ctx->missing_crc32)) + 1;
 
-    if ((ctx->pieces = ngx_palloc(r->pool, sizeof(ngx_http_zip_piece_t) * ctx->pieces_n)) == NULL)
+    if ((ctx->pieces = ngx_palloc(r->pool, sizeof(ngx_http_epub_piece_t) * ctx->pieces_n)) == NULL)
         return NGX_ERROR;
 
     ctx->cd_size = 0;
     unix_time = time(NULL);
     dos_time = ngx_dos_time(unix_time);
     for (piece_i = i = 0; i < ctx->files.nelts; i++) {
-        file = &((ngx_http_zip_file_t *)ctx->files.elts)[i];
+        file = &((ngx_http_epub_file_t *)ctx->files.elts)[i];
         file->offset = offset;
         file->unix_time = unix_time;
         file->dos_time = dos_time;
@@ -348,7 +348,7 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
             else
 #endif
               if(vv->len) {
-                const char * sep = ngx_http_zip_strnrstr((const char*)file->filename.data, file->filename.len,
+                const char * sep = ngx_http_epub_strnrstr((const char*)file->filename.data, file->filename.len,
                                                          (const char*)vv->data, vv->len);
                 if(sep) {
                     size_t utf8_len = file->filename.len - vv->len - (size_t)(sep - (const char *)file->filename.data);
@@ -371,7 +371,7 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
         // ctx->cd_size += sizeof(ngx_zip_central_directory_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_central_t);
         if (file->need_zip64) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                          "mod_zip: unable to use zip64. Epub disabled this feture");
+                          "mod_epub: unable to use zip64. Epub disabled this feture");
             /*
             if (file->need_zip64_offset) {
                 ctx->cd_size += sizeof(ngx_zip_extra_field_zip64_sizes_offset_t);
@@ -380,12 +380,12 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
             }*/
         } else if (file->need_zip64_offset) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                          "mod_zip: unable to use zip64. Epub disabled this feture");
+                          "mod_epub: unable to use zip64. Epub disabled this feture");
             // ctx->cd_size += sizeof(ngx_zip_extra_field_zip64_offset_only_t);
         }
         if (ctx->unicode_path && file->filename_utf8.len) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                          "mod_zip: unable to use unicode names. Epub disabled this feture");
+                          "mod_epub: unable to use unicode names. Epub disabled this feture");
             // ctx->cd_size += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
         }
 
@@ -398,12 +398,12 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
         //offset += sizeof(ngx_zip_local_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_local_t);
         if (file->need_zip64){
             ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                          "mod_zip: unable to use zip64. Epub disabled this feture");
+                          "mod_epub: unable to use zip64. Epub disabled this feture");
             // offset += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
         }
         if (ctx->unicode_path && file->filename_utf8.len){
             ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                          "mod_zip: unable to use unicode names. Epub disabled this feture");
+                          "mod_epub: unable to use unicode names. Epub disabled this feture");
             // offset += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
         }
         header_piece->range.end = offset;
@@ -449,7 +449,7 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
 
     // Collect names of original request's header fields that
     // have to be present in each of the issued sub-requests.
-    variable_header_status = ngx_http_zip_variable_unknown_header(r, vv, &ngx_http_zip_header_name_pass_headers,
+    variable_header_status = ngx_http_epub_variable_unknown_header(r, vv, &ngx_http_epub_header_name_pass_headers,
             &r->upstream->headers_in.headers.part, sizeof("upstream_http_")-1);
 
     if (variable_header_status == NGX_OK && !vv->not_found) {
@@ -491,14 +491,14 @@ ngx_http_zip_generate_pieces(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
 
 // make Local File Header chunk with extra fields
 ngx_chain_t*
-ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx,
-        ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *range)
+ngx_http_epub_file_header_chain_link(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx,
+        ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *range)
 {
     ngx_chain_t *link;
     ngx_buf_t   *b;
     u_char      *p;
 
-    ngx_http_zip_file_t *file = piece->file;
+    ngx_http_epub_file_t *file = piece->file;
     // ngx_zip_extra_field_local_t   extra_field_local;
     // ngx_zip_extra_field_zip64_sizes_only_t extra_field_zip64;
     ngx_zip_local_file_header_t   local_file_header;
@@ -508,12 +508,12 @@ ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *c
     // size_t len = sizeof(ngx_zip_local_file_header_t) + file->filename.len + sizeof(ngx_zip_extra_field_local_t);
     if (file->need_zip64){
         ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                      "mod_zip: unable to use zip64. Epub disabled this feture");
+                      "mod_epub: unable to use zip64. Epub disabled this feture");
         // len += sizeof(ngx_zip_extra_field_zip64_sizes_only_t);
     }
     if (ctx->unicode_path && file->filename_utf8.len){
         ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                      "mod_zip: unable to use unicode names. Epub disabled this feture");
+                      "mod_epub: unable to use unicode names. Epub disabled this feture");
         // len += sizeof(ngx_zip_extra_field_unicode_path_t) + file->filename_utf8.len;
     }
 
@@ -545,7 +545,7 @@ ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *c
 
     if (file->need_zip64) {
         ngx_log_error(NGX_LOG_WARN, r->connection->log, errno,
-                      "mod_zip: unable to use zip64. Epub disabled this feture");
+                      "mod_epub: unable to use zip64. Epub disabled this feture");
     }
     /*if (file->need_zip64) {
         local_file_header.version = htole16(zip_version_zip64);
@@ -607,7 +607,7 @@ ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *c
         p += file->filename_utf8.len;
     }
     */
-    ngx_http_zip_truncate_buffer(b, &piece->range, range);
+    ngx_http_epub_truncate_buffer(b, &piece->range, range);
 
     link->buf = b;
     link->next = NULL;
@@ -618,11 +618,11 @@ ngx_http_zip_file_header_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *c
 
 // make buffer with 32/64 bit Data Descriptor chunk, this follows files with incomplete headers
 ngx_chain_t*
-ngx_http_zip_data_descriptor_chain_link(ngx_http_request_t *r, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *range)
+ngx_http_epub_data_descriptor_chain_link(ngx_http_request_t *r, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *range)
 {
     ngx_chain_t *link;
     ngx_buf_t   *b;
-    ngx_http_zip_file_t *file = piece->file;
+    ngx_http_epub_file_t *file = piece->file;
     size_t struct_size = file->need_zip64? sizeof(ngx_zip_data_descriptor_zip64_t) : sizeof(ngx_zip_data_descriptor_t);
     union {
         ngx_zip_data_descriptor_t  descriptor;
@@ -648,7 +648,7 @@ ngx_http_zip_data_descriptor_chain_link(ngx_http_request_t *r, ngx_http_zip_piec
     }
 
     ngx_memcpy(b->pos, &data, struct_size);
-    ngx_http_zip_truncate_buffer(b, &piece->range, range);
+    ngx_http_epub_truncate_buffer(b, &piece->range, range);
 
     link->buf = b;
     link->next = NULL;
@@ -659,7 +659,7 @@ ngx_http_zip_data_descriptor_chain_link(ngx_http_request_t *r, ngx_http_zip_piec
 
 //make archive footer: Central Directory, Zip64 Central Directory End, Zip64 locator and Central Directory end chunks
 ngx_chain_t *
-ngx_http_zip_central_directory_chain_link(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx, ngx_http_zip_piece_t *piece, ngx_http_zip_range_t *range)
+ngx_http_epub_central_directory_chain_link(ngx_http_request_t *r, ngx_http_epub_ctx_t *ctx, ngx_http_epub_piece_t *piece, ngx_http_epub_range_t *range)
 {
     //nb: this is to be called only after 'generate pieces'
     ngx_chain_t           *trailer;
@@ -688,7 +688,7 @@ ngx_http_zip_central_directory_chain_link(ngx_http_request_t *r, ngx_http_zip_ct
     trailer_buf->memory = 1;
 
     for (i = 0; i < files->nelts; i++)
-        p = ngx_http_zip_write_central_directory_entry(p, &((ngx_http_zip_file_t *)files->elts)[i], ctx, r);
+        p = ngx_http_epub_write_central_directory_entry(p, &((ngx_http_epub_file_t *)files->elts)[i], ctx, r);
 
     eocdr = ngx_zip_end_of_central_directory_record_template;
     eocdr.signature = htole32(eocdr.signature);
@@ -730,14 +730,14 @@ ngx_http_zip_central_directory_chain_link(ngx_http_request_t *r, ngx_http_zip_ct
 
     ngx_memcpy(p, &eocdr, sizeof(ngx_zip_end_of_central_directory_record_t));
 
-    ngx_http_zip_truncate_buffer(trailer->buf, &piece->range, range);
+    ngx_http_epub_truncate_buffer(trailer->buf, &piece->range, range);
     return trailer;
 }
 
 
 u_char *
-ngx_http_zip_write_central_directory_entry(u_char *p, ngx_http_zip_file_t *file,
-        ngx_http_zip_ctx_t *ctx, ngx_http_request_t *r)
+ngx_http_epub_write_central_directory_entry(u_char *p, ngx_http_epub_file_t *file,
+        ngx_http_epub_ctx_t *ctx, ngx_http_request_t *r)
 {
     // ngx_zip_extra_field_central_t            extra_field_central;
     ngx_zip_central_directory_file_header_t  central_directory_file_header;
@@ -830,13 +830,13 @@ ngx_http_zip_write_central_directory_entry(u_char *p, ngx_http_zip_file_t *file,
     p += sizeof(ngx_zip_extra_field_central_t);
 
     if (extra_zip64_ptr) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: Adding extra field zip64");
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: Adding extra field zip64");
         ngx_memcpy(p, extra_zip64_ptr, extra_zip64_ptr_size);
         p += extra_zip64_ptr_size;
     }
 
     if (ctx->unicode_path && file->filename_utf8.len) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_zip: Adding extra field unicode name");
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "mod_epub: Adding extra field unicode name");
         ngx_memcpy(p, &extra_field_unicode_path, sizeof(ngx_zip_extra_field_unicode_path_t));
         p += sizeof(ngx_zip_extra_field_unicode_path_t);
 

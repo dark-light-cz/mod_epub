@@ -82,7 +82,8 @@ static ngx_zip_data_descriptor_zip64_t ngx_zip_data_descriptor_zip64_template = 
 
 static ngx_zip_local_file_header_t ngx_zip_local_file_header_template = {
     0x04034b50,  /* local file header signature */
-    0x0a,        /* version needed to extract */
+    //0x0a,        /* version needed to extract */
+    zip_version_deflate,        /* version needed to extract */
     zip_utf8_flag | zip_missing_crc32_flag,        /* general purpose bit flag */
     0,           /* compression method */
     0,           /* last mod file date/time */
@@ -96,8 +97,10 @@ static ngx_zip_local_file_header_t ngx_zip_local_file_header_template = {
 
 static ngx_zip_central_directory_file_header_t ngx_zip_central_directory_file_header_template = {
     0x02014b50,  /* central file header signature */
-    zip_version_zip64,      /* version made by */
-    zip_version_default,        /* version needed to extract */
+    //zip_version_zip64,      /* version made by */
+    30,      /* version made by */
+    //zip_version_default,        /* version needed to extract */
+    zip_version_deflate,        /* version needed to extract */
     zip_utf8_flag | zip_missing_crc32_flag,        /* general purpose bit flag */
     0,           /* compression method */
     0,           /* last mod file time */
@@ -110,7 +113,8 @@ static ngx_zip_central_directory_file_header_t ngx_zip_central_directory_file_he
     0,           /* file comment length */
     0,           /* disk number start */
     0,           /* internal file attributes */
-    0x81a4000,  /* external file attributes */
+    // 0x81a4000,  /* external file attributes */
+    0,  /* external file attributes */
     0xffffffff   /* relative offset of local header */
 };
 
@@ -755,7 +759,50 @@ ngx_http_epub_write_central_directory_entry(u_char *p, ngx_http_epub_file_t *fil
     central_directory_file_header.flags = htole16(central_directory_file_header.flags);
 
     if (file->is_directory) {
-        central_directory_file_header.attr_external = zip_directory_attr_external;
+        central_directory_file_header.attr_external = zip_directory_attr_external_epub;
+
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "mod_epub: Archiving '%V' is directory", &(file->filename));
+    } else {
+        // for some file types we need to set file type to text. Otherwise some readers will not work.
+        ngx_str_t *name = &file->filename;
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "mod_epub: Archiving file '%V'", name);
+        u_char *s;
+        unsigned int ii = 0;
+        for (int i=(name->len)-1;i>=0;--i){ 
+            s = ((name->data) + i);
+            ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "mod_epub: Ch%d '%p' and '%c' ", 
+                i,
+                s,
+                *s
+                );
+            ii++;
+            if (*s == '.'){
+                break;
+            }
+        }
+        ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "mod_epub: Found '%p' and '%c' ", 
+            s,
+            *s
+            );
+        
+        if (
+            *s == '.' &&
+            (
+             (ii==4 && !ngx_strncmp(s, ".xml", 4)) ||
+             (ii==4 && !ngx_strncmp(s, ".opf", 4)) ||
+             (ii==6 && !ngx_strncmp(s, ".xhtml", 6)) ||
+             (ii==4 && !ngx_strncmp(s, ".css", 4))
+            )
+        ) {
+            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "mod_epub: Found textfile");
+            central_directory_file_header.attr_internal = htole32(1);
+        }
+        
     }
 
     central_directory_file_header.attr_external = htole32(central_directory_file_header.attr_external);
@@ -775,6 +822,7 @@ ngx_http_epub_write_central_directory_entry(u_char *p, ngx_http_epub_file_t *fil
         central_directory_file_header.offset = htole32(file->offset);
     if (!file->missing_crc32)
         central_directory_file_header.flags &= htole16(~zip_missing_crc32_flag);
+    
     /*
     if (file->need_zip64) {
         central_directory_file_header.version_needed = zip_version_zip64;

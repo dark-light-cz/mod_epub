@@ -6,10 +6,12 @@
 #pragma pack(push, 1)
 
 #define zip_version_default 10
+#define zip_version_deflate 20
 #define zip_version_zip64 45
 #define zip_utf8_flag 0x0800
 #define zip_missing_crc32_flag 0x08
 #define zip_directory_attr_external 0x41ED0010
+#define zip_directory_attr_external_epub 0x00000010
 //                      Unix dir bit -^     ^- DOS dir bit
 //        Unix permission bits (0755) -^^^
 

@@ -22,3 +22,7 @@ Used mod_zip version is actually [1.3.0](https://github.com/evanmiller/mod_zip/c
 If you need to update this repository to newer version of mod_epub just create issue with update request or prepare pull request yourself.
 
 If you find any problem with feel free to write an issue. If it's problem with some ebook-reader, please provide me epub, which works on your reader and we can try to find the fix together.
+
+TODOs
+----
+ - make tests working

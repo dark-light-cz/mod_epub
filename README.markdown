@@ -26,3 +26,10 @@ If you find any problem with feel free to write an issue. If it's problem with s
 TODOs
 ----
  - make tests working
+
+RESOURCES
+----
+
+[PKZIP Specification](https://support.pkware.com/home/pkzip/developer-tools/appnote) 
+[EPUB on wikipedia](https://en.wikipedia.org/wiki/EPUB)
+

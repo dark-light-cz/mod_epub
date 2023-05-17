@@ -30,6 +30,6 @@ TODOs
 RESOURCES
 ----
 
-[PKZIP Specification](https://support.pkware.com/home/pkzip/developer-tools/appnote) 
-[EPUB on wikipedia](https://en.wikipedia.org/wiki/EPUB)
+ - [PKZIP Specification](https://support.pkware.com/home/pkzip/developer-tools/appnote) 
+ - [EPUB on wikipedia](https://en.wikipedia.org/wiki/EPUB)
 
